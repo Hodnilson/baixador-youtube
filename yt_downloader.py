@@ -23,7 +23,24 @@ import re
 # CONFIGURACOES GLOBAIS
 # ---------------------------------------------------------------
 MAX_DOWNLOADS_SIMULTANEOS = 3
-VERSAO = "1.0.0"
+VERSAO = "1.1.0"
+
+
+def verificar_ffmpeg():
+    """Verifica se o ffmpeg esta instalado no sistema."""
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=5
+        )
+        return result.returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+
+
+FFMPEG_DISPONIVEL = verificar_ffmpeg()
 
 
 # ---------------------------------------------------------------
@@ -39,24 +56,38 @@ def baixar_midia(url, pasta_destino, formato, log_callback=None, progress_callba
         return {"url": url, "sucesso": False, "erro": "URL vazia"}
 
     # Validar URL basica
-    if not ("youtube.com" in url or "youtu.be" in url):
+    if not ("youtube.com" in url or "youtu.be" in url or "music.youtube" in url):
         return {"url": url, "sucesso": False, "erro": "URL invalida (nao e do YouTube)"}
 
     # Montar comando yt-dlp
     cmd = [sys.executable, "-m", "yt_dlp"]
 
     if formato == "mp3":
-        cmd.extend([
-            "-x",                          # Extrair audio
-            "--audio-format", "mp3",       # Converter para MP3
-            "--audio-quality", "0",        # Melhor qualidade
-            "--embed-thumbnail",           # Embutir capa do video no MP3
-        ])
+        if FFMPEG_DISPONIVEL:
+            # Com ffmpeg: extrai e converte para MP3
+            cmd.extend([
+                "-x",                          # Extrair audio
+                "--audio-format", "mp3",       # Converter para MP3
+                "--audio-quality", "0",        # Melhor qualidade
+            ])
+        else:
+            # Sem ffmpeg: baixa o melhor audio no formato nativo (m4a/webm)
+            cmd.extend([
+                "-f", "bestaudio[ext=m4a]/bestaudio",
+            ])
+            if log_callback:
+                log_callback("  [AVISO] ffmpeg nao encontrado. Baixando audio em formato nativo (m4a).")
     else:
-        cmd.extend([
-            "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-            "--merge-output-format", "mp4",
-        ])
+        if FFMPEG_DISPONIVEL:
+            cmd.extend([
+                "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+                "--merge-output-format", "mp4",
+            ])
+        else:
+            # Sem ffmpeg: baixa o melhor formato ja combinado
+            cmd.extend([
+                "-f", "best[ext=mp4]/best",
+            ])
 
     # Opcoes gerais
     cmd.extend([
