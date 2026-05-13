@@ -8,3 +8,4 @@ build/
 dist/
 *.spec
 .venv/
+downloads_temp/

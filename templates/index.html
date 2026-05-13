@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YT Downloader Web</title>
+    <meta name="description" content="Baixe musicas e videos do YouTube direto pelo navegador do celular.">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0f0f1a;
+            color: #eaeaea;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Header */
+        .header {
+            width: 100%;
+            background: linear-gradient(135deg, #e94560, #c73e54);
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(233, 69, 96, 0.3);
+        }
+
+        .header h1 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: white;
+            letter-spacing: 0.5px;
+        }
+
+        .header p {
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.8);
+            margin-top: 4px;
+        }
+
+        /* Container */
+        .container {
+            width: 100%;
+            max-width: 600px;
+            padding: 20px;
+        }
+
+        /* Cards */
+        .card {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            border: 1px solid #2a2a4a;
+        }
+
+        .card-title {
+            font-size: 0.85rem;
+            color: #8892a4;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        /* Input de URL */
+        .url-input {
+            width: 100%;
+            padding: 14px 16px;
+            background: #16213e;
+            border: 2px solid #2a2a4a;
+            border-radius: 8px;
+            color: #eaeaea;
+            font-size: 1rem;
+            font-family: 'Consolas', 'Courier New', monospace;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .url-input:focus {
+            border-color: #e94560;
+        }
+
+        .url-input::placeholder {
+            color: #4a5568;
+        }
+
+        /* Radio Buttons customizados */
+        .format-options {
+            display: flex;
+            gap: 12px;
+        }
+
+        .format-option {
+            flex: 1;
+            position: relative;
+        }
+
+        .format-option input[type="radio"] {
+            display: none;
+        }
+
+        .format-option label {
+            display: block;
+            padding: 14px;
+            text-align: center;
+            background: #16213e;
+            border: 2px solid #2a2a4a;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.3s;
+        }
+
+        .format-option label:hover {
+            border-color: #e94560;
+        }
+
+        .format-option input[type="radio"]:checked + label {
+            background: rgba(233, 69, 96, 0.15);
+            border-color: #e94560;
+            color: #e94560;
+        }
+
+        .format-label-sub {
+            font-size: 0.75rem;
+            color: #8892a4;
+            font-weight: 400;
+            display: block;
+            margin-top: 2px;
+        }
+
+        /* Botao de download */
+        .btn-download {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #e94560, #c73e54);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.3);
+        }
+
+        .btn-download:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(233, 69, 96, 0.4);
+        }
+
+        .btn-download:active {
+            transform: translateY(0);
+        }
+
+        .btn-download:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Progresso */
+        .progress-section {
+            display: none;
+        }
+
+        .progress-section.active {
+            display: block;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 8px;
+            background: #16213e;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #e94560, #ff6b81);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .progress-bar-fill.done {
+            background: linear-gradient(90deg, #00d474, #00f59b);
+        }
+
+        .progress-text {
+            font-size: 0.85rem;
+            color: #8892a4;
+            text-align: center;
+            word-break: break-all;
+        }
+
+        /* Botao de salvar */
+        .btn-salvar {
+            display: none;
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #00d474, #00b864);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 12px;
+            text-decoration: none;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 212, 116, 0.3);
+            transition: all 0.3s;
+        }
+
+        .btn-salvar:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Log */
+        .log-area {
+            background: #0d0d18;
+            border-radius: 8px;
+            padding: 12px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.8rem;
+            color: #8892a4;
+            line-height: 1.6;
+            display: none;
+        }
+
+        .log-area.active {
+            display: block;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #4a5568;
+            font-size: 0.75rem;
+        }
+
+        /* Animacao de loading */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .loading {
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Aviso ffmpeg */
+        .aviso {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 0.8rem;
+            color: #ffc107;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>YT Downloader Web</h1>
+        <p>Baixe musicas e videos direto pelo navegador</p>
+    </div>
+
+    <div class="container">
+
+        {% if not ffmpeg %}
+        <div class="aviso">
+            [!] ffmpeg nao detectado. Audio sera baixado em formato .m4a em vez de .mp3.
+        </div>
+        {% endif %}
+
+        <!-- URL -->
+        <div class="card">
+            <div class="card-title">Link do YouTube</div>
+            <input
+                type="text"
+                id="urlInput"
+                class="url-input"
+                placeholder="Cole o link aqui..."
+                autocomplete="off"
+            >
+        </div>
+
+        <!-- Formato -->
+        <div class="card">
+            <div class="card-title">Formato</div>
+            <div class="format-options">
+                <div class="format-option">
+                    <input type="radio" name="formato" id="fmtMp3" value="mp3" checked>
+                    <label for="fmtMp3">
+                        MP3
+                        <span class="format-label-sub">Apenas Audio</span>
+                    </label>
+                </div>
+                <div class="format-option">
+                    <input type="radio" name="formato" id="fmtMp4" value="mp4">
+                    <label for="fmtMp4">
+                        MP4
+                        <span class="format-label-sub">Video Completo</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botao -->
+        <button id="btnBaixar" class="btn-download" onclick="iniciarDownload()">
+            Baixar
+        </button>
+
+        <!-- Progresso -->
+        <div id="progressSection" class="card progress-section">
+            <div class="card-title">Progresso</div>
+            <div class="progress-bar-bg">
+                <div id="progressFill" class="progress-bar-fill"></div>
+            </div>
+            <div id="progressText" class="progress-text">Iniciando...</div>
+            <a id="btnSalvar" class="btn-salvar" href="#" download>
+                Salvar Arquivo
+            </a>
+        </div>
+
+        <!-- Log -->
+        <div id="logArea" class="card log-area"></div>
+
+        <div class="footer">
+            YT Downloader Web v1.1 | Acesse de qualquer dispositivo na sua rede
+        </div>
+
+    </div>
+
+    <script>
+        let downloadAtivo = false;
+
+        function getFormato() {
+            const radios = document.getElementsByName("formato");
+            for (const r of radios) {
+                if (r.checked) return r.value;
+            }
+            return "mp3";
+        }
+
+        function addLog(msg) {
+            const log = document.getElementById("logArea");
+            log.classList.add("active");
+            log.innerHTML += msg + "<br>";
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function iniciarDownload() {
+            if (downloadAtivo) return;
+
+            const url = document.getElementById("urlInput").value.trim();
+            if (!url) {
+                alert("Cole um link do YouTube primeiro!");
+                return;
+            }
+
+            const formato = getFormato();
+            downloadAtivo = true;
+
+            // UI
+            const btn = document.getElementById("btnBaixar");
+            btn.disabled = true;
+            btn.textContent = "Baixando...";
+            btn.classList.add("loading");
+
+            const section = document.getElementById("progressSection");
+            section.classList.add("active");
+
+            const fill = document.getElementById("progressFill");
+            fill.style.width = "10%";
+            fill.classList.remove("done");
+
+            document.getElementById("progressText").textContent = "Conectando ao YouTube...";
+            document.getElementById("btnSalvar").style.display = "none";
+            document.getElementById("logArea").innerHTML = "";
+            document.getElementById("logArea").classList.remove("active");
+
+            addLog("[INICIO] Enviando requisicao...");
+
+            // Enviar requisicao
+            fetch("/baixar", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({url: url, formato: formato})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.erro) {
+                    addLog("[ERRO] " + data.erro);
+                    resetarUI();
+                    return;
+                }
+
+                addLog("[OK] Download iniciado. ID: " + data.id);
+                fill.style.width = "30%";
+                verificarStatus(data.id);
+            })
+            .catch(err => {
+                addLog("[ERRO] Falha na conexao: " + err);
+                resetarUI();
+            });
+        }
+
+        function verificarStatus(downloadId) {
+            const fill = document.getElementById("progressFill");
+            const texto = document.getElementById("progressText");
+
+            const intervalo = setInterval(() => {
+                fetch("/status/" + downloadId)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === "baixando") {
+                        texto.textContent = data.progresso || "Baixando...";
+                        // Simular progresso suave
+                        let w = parseInt(fill.style.width) || 30;
+                        if (w < 85) fill.style.width = (w + 2) + "%";
+                    }
+                    else if (data.status === "concluido") {
+                        clearInterval(intervalo);
+                        fill.style.width = "100%";
+                        fill.classList.add("done");
+                        texto.textContent = "Download concluido! Clique abaixo para salvar.";
+
+                        const btnSalvar = document.getElementById("btnSalvar");
+                        btnSalvar.href = "/arquivo/" + downloadId;
+                        btnSalvar.style.display = "block";
+                        btnSalvar.textContent = "Salvar: " + (data.arquivo || "arquivo");
+
+                        addLog("[CONCLUIDO] " + data.arquivo);
+                        resetarUI();
+                    }
+                    else if (data.status === "erro") {
+                        clearInterval(intervalo);
+                        fill.style.width = "100%";
+                        fill.style.background = "#ef4444";
+                        texto.textContent = "Erro: " + (data.erro || "Erro desconhecido");
+
+                        addLog("[ERRO] " + data.erro);
+                        resetarUI();
+                    }
+                })
+                .catch(() => {});
+            }, 1500);
+        }
+
+        function resetarUI() {
+            downloadAtivo = false;
+            const btn = document.getElementById("btnBaixar");
+            btn.disabled = false;
+            btn.textContent = "Baixar";
+            btn.classList.remove("loading");
+        }
+
+        // Permitir colar com Enter
+        document.getElementById("urlInput").addEventListener("keypress", function(e) {
+            if (e.key === "Enter") iniciarDownload();
+        });
+    </script>
+
+</body>
+</html>

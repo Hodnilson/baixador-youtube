@@ -1,40 +1,65 @@
 # YT Downloader - Baixador de Musicas e Videos do YouTube
 
-Um aplicativo Desktop com interface grafica premium para baixar musicas (MP3) e videos (MP4) do YouTube.
+Aplicativo para baixar musicas (MP3) e videos (MP4) do YouTube. Disponivel em 3 versoes:
 
-## Funcionalidades
+## Versoes Disponiveis
 
-- **Download em Lote:** Cole varios links de uma vez (um por linha) e baixe todos simultaneamente.
-- **Download Paralelo:** Ate 3 downloads ao mesmo tempo, sem travar a interface.
-- **MP3 ou MP4:** Escolha entre baixar apenas o audio (MP3, qualidade maxima) ou o video completo (MP4).
-- **Log em Tempo Real:** Acompanhe o progresso de cada download na tela.
-- **Interface Dark Mode:** Visual moderno e premium.
-- **Multiplataforma:** Funciona no Windows e Linux.
+| Versao | Arquivo | Para quem |
+|--------|---------|-----------|
+| Desktop (Windows/Linux) | `yt_downloader.py` | Quem quer um app com janela no PC |
+| Web (Celular/PC) | `web_app.py` | Quem quer acessar pelo navegador do celular |
 
-## Como Usar
+---
 
-### Opcao 1: Executavel (sem instalar nada)
-1. Baixe o executavel na aba **Releases** do repositorio.
-2. Execute o arquivo e cole os links do YouTube.
+## 1. Versao Desktop (Executavel)
 
-### Opcao 2: Rodar pelo Python
-1. Instale as dependencias:
+### Funcionalidades
+- Download em lote (varios links de uma vez)
+- Download paralelo (3 simultaneos)
+- Interface Dark Mode premium
+- Log em tempo real
+
+### Como usar
+Baixe o executavel na aba **Releases** ou rode via Python:
 ```bash
 pip install yt-dlp
-```
-2. Execute o script:
-```bash
 python yt_downloader.py
 ```
 
-## Requisitos (apenas para rodar via Python)
+---
+
+## 2. Versao Web (Celular / Mobile)
+
+### Funcionalidades
+- Acesse de qualquer celular pelo navegador
+- Design responsivo (funciona em qualquer tela)
+- Barra de progresso animada
+- Botao para salvar o arquivo direto no celular
+
+### Como usar
+```bash
+pip install flask yt-dlp
+python web_app.py
+```
+Depois acesse no navegador:
+- No PC: `http://localhost:5000`
+- No Celular: `http://SEU-IP:5000` (o IP aparece no terminal quando voce roda o comando)
+
+---
+
+## Requisitos
 - Python 3.7+
 - yt-dlp (`pip install yt-dlp`)
+- Flask (`pip install flask`) - apenas para versao web
+- ffmpeg (opcional, necessario para converter para MP3)
 
-## Como Gerar o Executavel
+### Instalar ffmpeg
 ```bash
-pip install pyinstaller
-pyinstaller --onefile --windowed yt_downloader.py
+# Linux (Ubuntu/Debian)
+sudo apt install -y ffmpeg
+
+# Windows
+# Baixe em: https://ffmpeg.org/download.html
 ```
 
 ---
