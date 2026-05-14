@@ -345,7 +345,7 @@
         <div id="logArea" class="card log-area"></div>
 
         <div class="footer">
-            YT Downloader Web v1.1 | Acesse de qualquer dispositivo na sua rede
+            YT Downloader Web v2.0 | API nativa yt-dlp
         </div>
 
     </div>
@@ -434,9 +434,11 @@
                 .then(data => {
                     if (data.status === "baixando") {
                         texto.textContent = data.progresso || "Baixando...";
-                        // Simular progresso suave
-                        let w = parseInt(fill.style.width) || 30;
-                        if (w < 85) fill.style.width = (w + 2) + "%";
+                        // Usar porcentagem real vinda do yt-dlp progress_hooks
+                        let pct = data.percentual || 0;
+                        if (pct > 0) {
+                            fill.style.width = Math.min(pct, 99) + "%";
+                        }
                     }
                     else if (data.status === "concluido") {
                         clearInterval(intervalo);

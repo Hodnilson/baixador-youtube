@@ -13,17 +13,23 @@ from tkinter import filedialog, messagebox
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
+import shutil
 import subprocess
 import sys
 import os
 import re
+
+try:
+    import yt_dlp
+except ImportError:
+    yt_dlp = None
 
 
 # ---------------------------------------------------------------
 # CONFIGURACOES GLOBAIS
 # ---------------------------------------------------------------
 MAX_DOWNLOADS_SIMULTANEOS = 3
-VERSAO = "1.1.0"
+VERSAO = "2.0.0"
 
 
 def verificar_ffmpeg():
@@ -44,13 +50,19 @@ FFMPEG_DISPONIVEL = verificar_ffmpeg()
 
 
 # ---------------------------------------------------------------
-# FUNCAO DE DOWNLOAD (roda em thread separada)
+# FUNCAO DE DOWNLOAD (roda em thread separada) - API NATIVA yt-dlp
 # ---------------------------------------------------------------
 def baixar_midia(url, pasta_destino, formato, log_callback=None, progress_callback=None):
     """
-    Baixa um video ou audio do YouTube usando yt-dlp via subprocess.
+    Baixa um video ou audio do YouTube usando a API nativa do yt-dlp.
     Retorna um dicionario com o resultado.
     """
+    if yt_dlp is None:
+        msg = "yt-dlp nao encontrado. Instale com: pip install yt-dlp"
+        if log_callback:
+            log_callback("  [ERRO] {}".format(msg))
+        return {"url": url, "sucesso": False, "erro": msg}
+
     url = url.strip()
     if not url:
         return {"url": url, "sucesso": False, "erro": "URL vazia"}
@@ -59,83 +71,74 @@ def baixar_midia(url, pasta_destino, formato, log_callback=None, progress_callba
     if not ("youtube.com" in url or "youtu.be" in url or "music.youtube" in url):
         return {"url": url, "sucesso": False, "erro": "URL invalida (nao e do YouTube)"}
 
-    # Montar comando yt-dlp
-    cmd = [sys.executable, "-m", "yt_dlp"]
+    # Montar opcoes do yt-dlp
+    ydl_opts = {
+        "outtmpl": str(Path(pasta_destino) / "%(title)s.%(ext)s"),
+        "noplaylist": True,
+        "no_overwrites": True,
+        "restrictfilenames": True,
+        "encoding": "utf-8",
+        "quiet": True,
+        "no_warnings": True,
+    }
+
+    # Hook de progresso para atualizar a UI
+    def _progress_hook(d):
+        if d["status"] == "downloading":
+            percent_str = d.get("_percent_str", "").strip()
+            speed_str = d.get("_speed_str", "").strip()
+            eta_str = d.get("_eta_str", "").strip()
+            if log_callback and percent_str:
+                log_callback("    [download] {} a {} (ETA: {})".format(
+                    percent_str, speed_str, eta_str
+                ))
+        elif d["status"] == "finished":
+            filename = d.get("filename", "")
+            if log_callback:
+                log_callback("    [download] 100% concluido: {}".format(
+                    Path(filename).name if filename else "arquivo"
+                ))
+
+    ydl_opts["progress_hooks"] = [_progress_hook]
 
     if formato == "mp3":
         if FFMPEG_DISPONIVEL:
             # Com ffmpeg: extrai e converte para MP3
-            cmd.extend([
-                "-x",                          # Extrair audio
-                "--audio-format", "mp3",       # Converter para MP3
-                "--audio-quality", "0",        # Melhor qualidade
-            ])
+            ydl_opts["format"] = "bestaudio/best"
+            ydl_opts["postprocessors"] = [{
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "0",
+            }]
         else:
             # Sem ffmpeg: baixa o melhor audio no formato nativo (m4a/webm)
-            cmd.extend([
-                "-f", "bestaudio[ext=m4a]/bestaudio",
-            ])
+            ydl_opts["format"] = "bestaudio[ext=m4a]/bestaudio"
             if log_callback:
                 log_callback("  [AVISO] ffmpeg nao encontrado. Baixando audio em formato nativo (m4a).")
     else:
         if FFMPEG_DISPONIVEL:
-            cmd.extend([
-                "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-                "--merge-output-format", "mp4",
-            ])
+            ydl_opts["format"] = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+            ydl_opts["merge_output_format"] = "mp4"
         else:
             # Sem ffmpeg: baixa o melhor formato ja combinado
-            cmd.extend([
-                "-f", "best[ext=mp4]/best",
-            ])
-
-    # Opcoes gerais
-    cmd.extend([
-        "-o", str(Path(pasta_destino) / "%(title)s.%(ext)s"),
-        "--no-playlist",              # Nao baixar playlists inteiras
-        "--no-overwrites",            # Nao sobrescrever
-        "--restrict-filenames",       # Nomes de arquivo seguros
-        "--encoding", "utf-8",
-        url
-    ])
+            ydl_opts["format"] = "best[ext=mp4]/best"
 
     if log_callback:
         log_callback("  [INICIO] Baixando: {}".format(url[:60]))
 
     try:
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace"
-        )
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
 
-        # Ler a saida linha por linha para mostrar progresso
-        for line in process.stdout:
-            line = line.strip()
-            if line and log_callback:
-                # Filtrar apenas linhas relevantes de progresso
-                if "[download]" in line or "[ExtractAudio]" in line:
-                    log_callback("    {}".format(line[:80]))
-
-        process.wait()
-
-        if process.returncode == 0:
-            if log_callback:
-                log_callback("  [OK] Concluido: {}".format(url[:60]))
-            return {"url": url, "sucesso": True, "erro": None}
-        else:
-            if log_callback:
-                log_callback("  [ERRO] Falha no download: {}".format(url[:60]))
-            return {"url": url, "sucesso": False, "erro": "yt-dlp retornou erro (codigo {})".format(process.returncode)}
-
-    except FileNotFoundError:
-        msg = "yt-dlp nao encontrado. Instale com: pip install yt-dlp"
         if log_callback:
-            log_callback("  [ERRO] {}".format(msg))
-        return {"url": url, "sucesso": False, "erro": msg}
+            log_callback("  [OK] Concluido: {}".format(url[:60]))
+        return {"url": url, "sucesso": True, "erro": None}
+
+    except yt_dlp.utils.DownloadError as e:
+        erro_msg = str(e)[:120]
+        if log_callback:
+            log_callback("  [ERRO] {}".format(erro_msg))
+        return {"url": url, "sucesso": False, "erro": erro_msg}
     except Exception as e:
         if log_callback:
             log_callback("  [ERRO] {}".format(str(e)[:80]))
@@ -479,6 +482,7 @@ class YTDownloaderApp(tk.Tk):
         self._log("=" * 50)
         self._log("  Iniciando download de {} arquivo(s)".format(total))
         self._log("  Formato: {}  |  Pasta: {}".format(formato.upper(), pasta))
+        self._log("  Engine: yt-dlp API nativa (v2.0)")
         self._log("=" * 50)
 
         def _processar_lote():
@@ -548,6 +552,21 @@ class YTDownloaderApp(tk.Tk):
 # PONTO DE ENTRADA
 # ---------------------------------------------------------------
 if __name__ == "__main__":
+    # Verificar dependencia yt-dlp antes de abrir a GUI
+    if yt_dlp is None:
+        try:
+            root = tk.Tk()
+            root.withdraw()
+            messagebox.showerror(
+                "Dependencia Ausente",
+                "O modulo 'yt-dlp' nao esta instalado.\n\n"
+                "Instale com:\n  pip install yt-dlp\n\n"
+                "Depois execute novamente."
+            )
+        except Exception:
+            print("ERRO: yt-dlp nao instalado. Execute: pip install yt-dlp")
+        sys.exit(1)
+
     try:
         app = YTDownloaderApp()
         app.mainloop()
