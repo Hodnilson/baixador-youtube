@@ -1,0 +1,45 @@
+name: Construir Executaveis (Win/Linux)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:  # Permite rodar o script manualmente clicando num botão no GitHub
+
+jobs:
+  build:
+    name: Build para ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+        include:
+          - os: windows-latest
+            suffix: .exe
+            name: Windows
+          - os: ubuntu-latest
+            suffix: ""
+            name: Linux
+
+    steps:
+    - name: Baixar o código do repositorio
+      uses: actions/checkout@v4
+
+    - name: Configurar o Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11' 
+
+    - name: Instalar dependencias e PyInstaller
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Compilar o Executavel
+      run: pyinstaller --onefile --windowed --name="YT_Downloader_${{ matrix.name }}" yt_downloader.py
+
+    - name: Fazer Upload do Arquivo Compilado
+      uses: actions/upload-artifact@v4
+      with:
+        name: YT_Downloader_${{ matrix.name }}
+        path: dist/YT_Downloader_${{ matrix.name }}${{ matrix.suffix }}
